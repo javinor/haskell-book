@@ -1,4 +1,4 @@
-module Ch15_12_QuickCheck where
+module Ch15_12_Another_Monoid where
 
 import Ch15_10_Optional_Monoid
 import Control.Monad
