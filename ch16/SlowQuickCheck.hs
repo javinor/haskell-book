@@ -1,3 +1,6 @@
+-- Asked on SO:
+-- https://stackoverflow.com/questions/65491718/why-does-quickcheck-take-a-long-time-when-testing-a-functor-instance-with-a-spec
+
 module SlowQuickCheck where
 
 import Test.QuickCheck
@@ -29,8 +32,7 @@ type ParappaId = Parappa [] Maybe Char -> Bool
 type ParappaComp = 
      Fun Integer String 
   -> Fun String [Bool] 
-  -> Parappa [] Maybe Integer
-  -- -> Parappa (Either Char) Maybe Integer
+  -> Parappa (Either Char) Maybe Integer
   -> Bool
 
 

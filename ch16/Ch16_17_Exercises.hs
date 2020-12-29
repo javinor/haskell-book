@@ -143,9 +143,164 @@ type ParappaId = Parappa [] Maybe Char -> Bool
 type ParappaComp = 
      Fun Integer String 
   -> Fun String [Bool] 
-  -- -> Parappa [] Maybe Integer
   -> Parappa (Either Char) Maybe Integer
   -> Bool
+
+
+-- IgnoreOne f g a b
+data IgnoreOne f g a b =
+  IgnoringSomething (f a) (g b)
+  deriving (Eq, Show)
+
+instance Functor g => Functor (IgnoreOne f g a) where
+  fmap f (IgnoringSomething fa gb) = 
+    IgnoringSomething fa (fmap f gb) 
+
+instance (Arbitrary (f a),
+          Arbitrary (g b)) 
+       => Arbitrary (IgnoreOne f g a b) where
+  arbitrary = IgnoringSomething 
+          <$> arbitrary 
+          <*> arbitrary
+
+type IgnoreOneId = IgnoreOne [] Maybe Bool Integer -> Bool
+type IgnoreOneComp =
+     Fun Integer String 
+  -> Fun String [Bool] 
+  -> IgnoreOne (Either Char) Maybe Bool Integer
+  -> Bool
+
+
+-- Notorious g o a t
+data Notorious g o a t =
+  Notorious (g o) (g a) (g t)
+  deriving (Eq, Show)
+
+instance Functor g => Functor (Notorious g o a) where
+  fmap f (Notorious go ga gt) = Notorious go ga (fmap f gt)
+
+instance ( Arbitrary (g o)
+         , Arbitrary (g a)
+         , Arbitrary (g t)
+         ) => Arbitrary (Notorious g o a t) where
+  arbitrary = Notorious
+          <$> arbitrary
+          <*> arbitrary
+          <*> arbitrary
+
+type NotoriousId = Notorious Maybe Bool Char Integer -> Bool
+type NotoriousComp =
+     Fun Integer String 
+  -> Fun String [Bool] 
+  -> Notorious Maybe Bool Char Integer 
+  -> Bool
+
+
+-- List a
+data List a = Nil
+            | Cons a (List a)
+            deriving (Eq, Show)
+
+instance Functor List where
+  fmap _ Nil         = Nil
+  fmap f (Cons x xs) = Cons (f x) (fmap f xs)
+
+instance Arbitrary a => Arbitrary (List a) where
+  arbitrary = 
+    frequency [ (1, return $ Nil)
+              , (3, Cons <$> arbitrary <*> arbitrary)]
+
+type ListId = List Integer -> Bool
+type ListComp =
+     Fun Integer String 
+  -> Fun String [Bool] 
+  -> List Integer
+  -> Bool
+
+
+-- GoatLord a
+data GoatLord a =
+    NoGoat
+  | OneGoat a
+  | MoreGoats (GoatLord a)
+              (GoatLord a)
+              (GoatLord a)
+  deriving (Eq, Show)
+
+instance Functor GoatLord where
+  fmap _ NoGoat = NoGoat
+  fmap f (OneGoat x) = OneGoat (f x) 
+  fmap f (MoreGoats gla glb glc) = 
+    MoreGoats (fmap f gla)
+              (fmap f glb)
+              (fmap f glc)
+
+instance Arbitrary a => Arbitrary (GoatLord a) where
+  arbitrary = 
+    frequency [ (10, return NoGoat)
+              , (10, OneGoat <$> arbitrary)
+              , (7, MoreGoats <$> arbitrary <*> arbitrary <*> arbitrary) ]
+
+type GoatLordId = GoatLord Integer -> Bool
+type GoatLordComp =
+     Fun Integer String 
+  -> Fun String [Bool] 
+  -> GoatLord Integer
+  -> Bool
+
+
+-- TalkToMe a
+data TalkToMe a =
+    Halt
+  | Print String a
+  | Read (String -> a)
+
+instance Show a => Show (TalkToMe a) where 
+  show Halt = "Halt"
+  show (Print s a) = "Print " ++ s ++ " " ++ show a
+  show (Read _) = "Read _"
+
+instance Functor TalkToMe where
+  fmap _ Halt        = Halt
+  fmap f (Print s a) = Print s (f a)
+  fmap f (Read fsa)  = Read $ fmap f fsa
+
+instance (Arbitrary a) => Arbitrary (TalkToMe a) where
+  arbitrary =
+    oneof [ return Halt
+          , Print <$> arbitrary <*> arbitrary
+          , Read <$> arbitrary
+          ]
+
+type TalkToMeId = TalkToMe Integer -> String -> Bool
+type TalkToMeComp =
+     Fun Integer String 
+  -> Fun String [Bool] 
+  -> TalkToMe Integer
+  -> String
+  -> Bool
+
+functorIdTTM :: Eq a => TalkToMe a -> String -> Bool
+functorIdTTM ttm rndStr =
+  let ttm' = fmap id ttm
+  in case (ttm, ttm') of
+    (Halt, Halt)           -> True
+    (Print s a, Print t b) -> s == t && a == b
+    (Read f, Read g)       -> f rndStr == g rndStr
+    _                      -> False
+
+functorComposeTTM :: Eq c 
+  => Fun a b -> Fun b c -> TalkToMe a -> String -> Bool
+functorComposeTTM fab gbc ttm rndStr =
+  let f = applyFun fab
+      g = applyFun gbc
+      left = fmap g (fmap f ttm)
+      right = fmap (g . f) ttm
+  in case (left, right) of
+    (Halt, Halt)           -> True
+    (Print s a, Print t b) -> s == t && a == b
+    (Read fn, Read fn')       -> fn rndStr == fn' rndStr
+    _ -> False
 
 
 -- Main
@@ -167,6 +322,19 @@ main = do
   quickCheck (functorCompose' :: LiftItOutComp)
 
   quickCheck (functorIdentity :: ParappaId)
-  -- Why does functorCompose' take a long time with type:
-  -- ... -> Parappa [] Maybe Integer -> Bool ?
   quickCheck (functorCompose' :: ParappaComp) 
+
+  quickCheck (functorIdentity :: IgnoreOneId)
+  quickCheck (functorCompose' :: IgnoreOneComp) 
+
+  quickCheck (functorIdentity :: NotoriousId)
+  quickCheck (functorCompose' :: NotoriousComp) 
+
+  quickCheck (functorIdentity :: ListId)
+  quickCheck (functorCompose' :: ListComp) 
+
+  quickCheck (functorIdentity :: GoatLordId)
+  quickCheck (functorCompose' :: GoatLordComp) 
+
+  quickCheck (functorIdTTM :: TalkToMeId)
+  quickCheck (functorComposeTTM :: TalkToMeComp) 
