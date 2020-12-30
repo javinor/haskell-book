@@ -13,6 +13,7 @@ import qualified System.Random as SR
 import Web.Scotty
 
 alphaNum :: String
+-- alphaNum = ['A'] -- for testing error
 alphaNum = ['A'..'Z'] ++ ['0'..'9']
 
 randomElement :: String -> IO Char
@@ -85,12 +86,23 @@ app rConn = do
       Just _ -> do
         shawty <- liftIO shortyGen
         let shorty = BC.pack shawty
-            uri' = encodeUtf8 (TL.toStrict uri)
         
         resp <-
-          liftIO (saveURI rConn shorty uri')
+          liftIO (getURI rConn shorty)
 
-        html (shortyCreated resp shawty)
+        case resp of
+          Left reply ->
+            text (TL.pack $ show reply)
+          Right mbBS -> case mbBS of
+            Just _ ->
+              text (TL.pack "ERROR! generated short already exists! please try again...")
+            Nothing -> do
+              let uri' = encodeUtf8 (TL.toStrict uri)
+              
+              resp' <-
+                liftIO (saveURI rConn shorty uri')
+
+              html (shortyCreated resp' shawty)
 
       Nothing -> text (shortyAintUri uri)
 
