@@ -36,7 +36,8 @@ instance Foldable Tree where
   -- foldr :: Foldable t => (a -> b -> b) -> b -> t a -> b
   foldr _ z Empty = z
   foldr f z (Leaf x) = f x z
-  -- TODO why does this fail some QuickCheck tests?
+  -- QUESTION why does this fail some QuickCheck tests?
+  -- ANSWER fails for non-commutative monoids - https://stackoverflow.com/questions/65533197/why-is-this-implementation-a-bad-instance-of-the-foldable-typeclass/65533224#65533224
   -- foldr f z (Node left x right) = 
   --   f x $ foldr f (foldr f z left) right
   foldr f z (Node left x right) = 
