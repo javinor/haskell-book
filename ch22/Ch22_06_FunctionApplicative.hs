@@ -1,5 +1,6 @@
 module Ch22_06_FunctionApplicative where
 
+import Ch22_07_ReaderMonad
 import Control.Applicative (liftA2)
 
 newtype HumanName =
@@ -60,3 +61,13 @@ myLiftA2 f x y = f <$> x <*> y
 
 asks :: (r -> a) -> Reader r a
 asks f = Reader f
+
+-- Reader Monad
+getDogRM :: Person -> Dog
+getDogRM = do
+  name <- dogName
+  addy <- address
+  return $ Dog name addy
+
+getDogRM' :: Reader Person Dog
+getDogRM' = Reader $ Dog <$> dogName <*> address
